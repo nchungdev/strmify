@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  strmify:
+    image: ghcr.io/nchungdev/strmify:latest
+    container_name: strmify
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - PUID=1000 # Thay bằng ID User của OMV (id command)
+      - PGID=100  # Thay bằng ID Group của OMV (thường là users)
+    env_file:
+      - .env
+    volumes:
+      # Nếu dùng chế độ 'Local Storage' để lưu trực tiếp vào ổ cứng OMV:
+      # - /srv/dev-disk-by-uuid-xxx/Movies:/srv/media/movies
+      # - /srv/dev-disk-by-uuid-xxx/TVShows:/srv/media/tv
+      - ./data:/app/data # Lưu config/cache nếu cần
+    restart: always

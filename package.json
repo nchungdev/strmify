@@ -1,0 +1,20 @@
+{
+  "name": "strmify",
+  "version": "1.0.0",
+  "description": "Professional STRM Pipeline for M3U8 links",
+  "main": "src/backend/index.mjs",
+  "type": "module",
+  "scripts": {
+    "prestart": "lsof -ti:3000 | xargs kill -9 || true",
+    "start": "node src/backend/index.mjs",
+    "predev": "lsof -ti:3000 | xargs kill -9 || true",
+    "dev": "nodemon src/backend/index.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}
