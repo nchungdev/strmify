@@ -1,5 +1,4 @@
-import sqlite3
-import "dotenv/config";
+import sqlite3 from "sqlite3";
 
 export class DbService {
   static get dbPath() { return process.env.INTRO_DB_PATH; }
@@ -12,12 +11,14 @@ export class DbService {
       
       db.serialize(() => {
         const stmt = db.prepare(`
-          INSERT INTO DbSegment (ItemId, Type, Start, End, IsUserProvided)
+          INSERT OR REPLACE INTO DbSegment (ItemId, Type, Start, End, IsUserProvided)
           VALUES (?, ?, ?, ?, 1)
         `);
 
         for (const seg of segments) {
           const { itemId, type, start, end } = seg;
+          // ItemId in jellyfin.db is often a UUID string, but in introskipper it might be different.
+          // However, introskipper.db uses the same GUID format as jellyfin.db.
           stmt.run(itemId, type, start, end);
         }
 
@@ -32,6 +33,7 @@ export class DbService {
 
   static async getExistingSegments(itemIds) {
     return new Promise((resolve, reject) => {
+      if (!this.dbPath) return reject(new Error("INTRO_DB_PATH not configured"));
       const db = new sqlite3.Database(this.dbPath);
       const placeholders = itemIds.map(() => '?').join(',');
       db.all(`SELECT ItemId FROM DbSegment WHERE ItemId IN (${placeholders})`, itemIds, (err, rows) => {

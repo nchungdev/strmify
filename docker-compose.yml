@@ -5,18 +5,20 @@ services:
     image: ghcr.io/nchungdev/strmify:latest
     container_name: strmify
     ports:
-      - "3000:3000"
+      - "3030:3000"
     environment:
       - PORT=3000
       - NODE_ENV=production
       - TMDB_API_KEY=${TMDB_API_KEY}
-      - PUID=1000 # Thay bằng ID User của OMV (id command)
-      - PGID=100  # Thay bằng ID Group của OMV (thường là users)
+      - JELLYFIN_URL=${JELLYFIN_URL}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - INTRO_DB_PATH=/introskipper/introskipper.db
+      - PUID=1000
+      - PGID=100
     env_file:
       - .env
     volumes:
-      # Nếu dùng chế độ 'Local Storage' để lưu trực tiếp vào ổ cứng OMV:
-      # - /srv/dev-disk-by-uuid-xxx/Movies:/srv/media/movies
-      # - /srv/dev-disk-by-uuid-xxx/TVShows:/srv/media/tv
-      - ./data:/app/data # Lưu config/cache nếu cần
+      - /srv/dev-disk-by-uuid-98bd3ebc-514a-4108-ac09-155de8462a10/strmify:/config
+      - /srv/mergerfs/MainPool/Phim:/srv/media
+      - /home/chungnh/appdata/jellyfin/data/data/introskipper:/introskipper
     restart: always

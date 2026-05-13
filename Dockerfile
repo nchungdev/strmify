@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     rsync \
     sshpass \
     openssh-client \
+    python3 \
+    make \
+    g++ \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
