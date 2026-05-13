@@ -175,8 +175,13 @@ async function fetchAniSkipPreview(item) {
       body: JSON.stringify({ seriesId: item.Id })
     });
     const epData = await epRes.json();
+    if (!epData.ok) throw new Error(epData.error || "Không thể lấy danh sách tập phim");
     
-    const episodes = epData.items.map(e => ({ id: e.Id, number: e.IndexNumber }));
+    const episodes = (epData.items || []).map(e => ({ id: e.Id, number: e.IndexNumber }));
+    if (episodes.length === 0) {
+      aniskipPreview.innerHTML = `<div style='padding:20px;text-align:center;'>Không tìm thấy tập phim nào trong Jellyfin.</div>`;
+      return;
+    }
     
     // 2. Fetch from AniSkip
     const aniRes = await fetch("/api/aniskip-fetch", {
@@ -184,8 +189,9 @@ async function fetchAniSkipPreview(item) {
       body: JSON.stringify({ malId, episodes })
     });
     const aniData = await aniRes.json();
+    if (!aniData.ok) throw new Error(aniData.error || "Lỗi khi lấy dữ liệu từ AniSkip");
     
-    if (aniData.results.length === 0) {
+    if (!aniData.results || aniData.results.length === 0) {
       aniskipPreview.innerHTML = `<div style='padding:20px;text-align:center;'>Không tìm thấy dữ liệu trên AniSkip cho bộ phim này.</div>`;
       return;
     }
@@ -194,7 +200,7 @@ async function fetchAniSkipPreview(item) {
     aniData.results.forEach(res => {
       const row = document.createElement("div");
       row.className = "skip-row";
-      const segs = res.segments.map(s => {
+      const segs = (res.segments || []).map(s => {
         const type = s.skipType === 'op' ? 'Intro' : 'Outro';
         const cls = s.skipType === 'op' ? 'op' : 'ed';
         pendingSegments.push({ itemId: res.itemId, type: s.skipType === 'op' ? 0 : 1, start: s.interval.startTime, end: s.interval.endTime });
