@@ -38,7 +38,9 @@ const tabPipeline = el("tabPipeline"),
   jfMediaList = el("jfMediaList"),
   aniskipPreview = el("aniskipPreview"),
   saveSegmentsBtn = el("saveSegmentsBtn"),
-  refreshJfBtn = el("refreshJfBtn");
+  refreshJfBtn = el("refreshJfBtn"),
+  filterSeries = el("filterSeries"),
+  filterMovies = el("filterMovies");
 
 let TMDB_API_KEY = "";
 let currentTmdbData = { type: "", seasons: [] },
@@ -46,6 +48,8 @@ let currentTmdbData = { type: "", seasons: [] },
   targetInput = null;
 const collapsedSeasons = new Set();
 let pendingSegments = [];
+let allJfItems = [],
+  currentJfFilter = "Series";
 
 // --- Initialization ---
 
@@ -96,32 +100,57 @@ tabManage.onclick = () => {
 
 // --- Jellyfin & AniSkip Management ---
 
+filterSeries.onclick = () => {
+  currentJfFilter = "Series";
+  filterSeries.classList.add("active");
+  filterMovies.classList.remove("active");
+  renderJellyfinMedia();
+};
+
+filterMovies.onclick = () => {
+  currentJfFilter = "Movie";
+  filterMovies.classList.add("active");
+  filterSeries.classList.remove("active");
+  renderJellyfinMedia();
+};
+
 async function loadJellyfinMedia() {
   jfMediaList.innerHTML = "<div style='padding:20px;text-align:center;'>Đang tải...</div>";
   try {
     const res = await fetch("/api/jf-items");
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
-    
-    jfMediaList.innerHTML = "";
-    data.items.forEach(item => {
-      const d = document.createElement("div");
-      d.className = "media-item";
-      const year = item.ProductionYear ? `(${item.ProductionYear})` : "";
-      d.innerHTML = `
-        <span class="title">${item.Name}</span>
-        <span class="meta">${item.Type} ${year}</span>
-      `;
-      d.onclick = () => {
-        document.querySelectorAll(".media-item").forEach(i => i.classList.remove("active"));
-        d.classList.add("active");
-        fetchAniSkipPreview(item);
-      };
-      jfMediaList.append(d);
-    });
+    allJfItems = data.items;
+    renderJellyfinMedia();
   } catch (e) {
     jfMediaList.innerHTML = `<div style='padding:20px;color:var(--bad);'>Lỗi: ${e.message}</div>`;
   }
+}
+
+function renderJellyfinMedia() {
+  jfMediaList.innerHTML = "";
+  const filtered = allJfItems.filter((item) => item.Type === currentJfFilter);
+
+  if (filtered.length === 0) {
+    jfMediaList.innerHTML = `<div style='padding:20px;text-align:center;color:#999;'>Không có ${currentJfFilter === "Series" ? "phim bộ" : "phim lẻ"} nào.</div>`;
+    return;
+  }
+
+  filtered.forEach((item) => {
+    const d = document.createElement("div");
+    d.className = "media-item";
+    const year = item.ProductionYear ? `(${item.ProductionYear})` : "";
+    d.innerHTML = `
+        <span class="title">${item.Name}</span>
+        <span class="meta">${item.Type} ${year}</span>
+      `;
+    d.onclick = () => {
+      document.querySelectorAll(".media-item").forEach((i) => i.classList.remove("active"));
+      d.classList.add("active");
+      fetchAniSkipPreview(item);
+    };
+    jfMediaList.append(d);
+  });
 }
 
 refreshJfBtn.onclick = loadJellyfinMedia;

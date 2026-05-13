@@ -93,11 +93,15 @@
       <div class="main-grid" style="flex: 1; height: 100%; grid-template-columns: 0.8fr 1.2fr;">
         <!-- Left: Media List -->
         <section style="display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0;">
-          <div class="section-head">
+          <div class="section-head" style="margin-bottom: 5px;">
             <h2>THƯ VIỆN JELLYFIN</h2>
             <button id="refreshJfBtn" class="icon-btn" title="Làm mới">🔄</button>
           </div>
-          <div id="jfMediaList" class="browser-list" style="flex: 1; overflow-y: auto; background: var(--panel); border-radius: 12px; border: 1px solid var(--line); margin-top: 10px;">
+          <div class="tabs" style="margin-bottom: 10px; align-self: flex-start; background: #f0f2f5;">
+            <button id="filterSeries" class="tab-btn active" style="font-size: 10px; padding: 4px 12px;">PHIM BỘ</button>
+            <button id="filterMovies" class="tab-btn" style="font-size: 10px; padding: 4px 12px;">PHIM LẺ</button>
+          </div>
+          <div id="jfMediaList" class="browser-list" style="flex: 1; overflow-y: auto; background: var(--panel); border-radius: 12px; border: 1px solid var(--line);">
             <div style="padding: 20px; text-align: center; color: #999;">Đang tải...</div>
           </div>
         </section>
