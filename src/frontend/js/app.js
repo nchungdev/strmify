@@ -161,15 +161,16 @@ async function fetchAniSkipPreview(item) {
   pendingSegments = [];
 
   const malId = item.ProviderIds?.AniList || item.ProviderIds?.Mal || item.ProviderIds?.AniDB;
-  if (!malId && item.Type === "Series") {
+  const tmdbId = item.ProviderIds?.Tmdb;
+
+  if (!malId && !tmdbId) {
     aniskipPreview.innerHTML = `
       <div style='padding:20px;text-align:center;'>
-        <p style='color:var(--bad);margin-bottom:15px;'>Không tìm thấy MAL/AniList ID cho bộ phim này.</p>
+        <p style='color:var(--bad);margin-bottom:15px;'>Không tìm thấy bất kỳ ID nào (TMDB/MAL) cho bộ phim này.</p>
         <div style="display:flex; gap:8px; justify-content:center; max-width:300px; margin:0 auto;">
           <input id="manualMalId" type="text" placeholder="Nhập MAL ID (v dụ: 21)" style="height:32px; font-size:12px;">
           <button id="manualSearchBtn" class="primary" style="height:32px; font-size:11px; white-space:nowrap;">TÌM SKIP</button>
         </div>
-        <p style='font-size:11px; color:#888; margin-top:10px;'>Bạn có thể lấy ID từ URL của MyAnimeList (vd: myanimelist.net/anime/<b>21</b>)</p>
       </div>
     `;
     el("manualSearchBtn").onclick = () => {
@@ -195,13 +196,34 @@ async function fetchAniSkipPreview(item) {
       return;
     }
     
-    // 2. Fetch from AniSkip
+    // 2. Fetch from AniSkip (with tmdbId fallback in backend)
     const aniRes = await fetch("/api/aniskip-fetch", {
       method: "POST",
-      body: JSON.stringify({ malId, episodes })
+      body: JSON.stringify({ malId, tmdbId, episodes, type: item.Type })
     });
     const aniData = await aniRes.json();
-    if (!aniData.ok) throw new Error(aniData.error || "Lỗi khi lấy dữ liệu từ AniSkip");
+    
+    if (!aniData.ok) {
+      // If backend failed to resolve MAL ID, show manual input
+      if (aniData.error.includes("MAL ID")) {
+        aniskipPreview.innerHTML = `
+          <div style='padding:20px;text-align:center;'>
+            <p style='color:var(--bad);margin-bottom:15px;'>Không tự động tìm được MAL ID. Vui lòng nhập thủ công.</p>
+            <div style="display:flex; gap:8px; justify-content:center; max-width:300px; margin:0 auto;">
+              <input id="manualMalId" type="text" placeholder="Nhập MAL ID (v dụ: 21)" style="height:32px; font-size:12px;">
+              <button id="manualSearchBtn" class="primary" style="height:32px; font-size:11px; white-space:nowrap;">TÌM SKIP</button>
+            </div>
+          </div>
+        `;
+        el("manualSearchBtn").onclick = () => {
+          const id = el("manualMalId").value.trim();
+          if (!id) return alert("Vui lòng nhập MAL ID");
+          fetchAniSkipPreview({ ...item, ProviderIds: { Mal: id } });
+        };
+        return;
+      }
+      throw new Error(aniData.error);
+    }
     
     if (!aniData.results || aniData.results.length === 0) {
       aniskipPreview.innerHTML = `<div style='padding:20px;text-align:center;'>Không tìm thấy dữ liệu trên AniSkip cho bộ phim này.</div>`;

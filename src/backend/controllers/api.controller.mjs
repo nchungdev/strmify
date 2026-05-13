@@ -26,7 +26,17 @@ export class ApiController {
 
   static async fetchAniskip(req, res, body) {
     try {
-      const { malId, episodes } = JSON.parse(body);
+      let { malId, tmdbId, episodes, type } = JSON.parse(body);
+      
+      // Auto-resolve MAL ID if missing
+      if (!malId && tmdbId) {
+        malId = await AniskipService.findMalId(tmdbId, type === 'Movie' ? 'movie' : 'tv');
+      }
+
+      if (!malId) {
+        throw new Error("Không tìm thấy MAL ID. Vui lòng nhập thủ công.");
+      }
+
       const results = [];
       for (const ep of episodes) {
         const skipTimes = await AniskipService.getSkipTimes(malId, ep.number);
