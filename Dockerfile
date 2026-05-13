@@ -1,5 +1,5 @@
 # Use Node.js as base
-FROM node:20-slim
+FROM node:20-bookworm-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -17,7 +17,8 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install
+# Force build sqlite3 from source to avoid GLIBC version mismatch
+RUN npm install && npm rebuild sqlite3 --build-from-source
 
 # Copy application source
 COPY . .
