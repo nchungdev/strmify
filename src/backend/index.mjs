@@ -42,6 +42,12 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Jellyfin Items Endpoint
+  if (req.method === "GET" && url.pathname === "/api/jf-items") {
+    await ApiController.listJellyfinMedia(req, res);
+    return;
+  }
+
   // Static File Serving
   if (req.method === "GET") {
     let filePath = "";
@@ -93,9 +99,6 @@ const server = createServer(async (req, res) => {
           break;
         case "/api/push":
           await ApiController.pushRemote(req, res, body);
-          break;
-        case "/api/jf-items":
-          await ApiController.listJellyfinMedia(req, res);
           break;
         case "/api/jf-episodes":
           await ApiController.listJellyfinEpisodes(req, res, body);
