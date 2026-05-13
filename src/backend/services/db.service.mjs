@@ -1,4 +1,5 @@
-import sqlite3 from "sqlite3";
+import sqlite3_pkg from "sqlite3";
+const sqlite3 = sqlite3_pkg.verbose();
 
 export class DbService {
   static get dbPath() { return process.env.INTRO_DB_PATH; }
@@ -17,8 +18,6 @@ export class DbService {
 
         for (const seg of segments) {
           const { itemId, type, start, end } = seg;
-          // ItemId in jellyfin.db is often a UUID string, but in introskipper it might be different.
-          // However, introskipper.db uses the same GUID format as jellyfin.db.
           stmt.run(itemId, type, start, end);
         }
 
