@@ -12,9 +12,12 @@
 <body>
   <main>
     <header>
-      <div>
+      <div style="display: flex; align-items: center; gap: 20px;">
         <h1>Strmify</h1>
-        <p class="subtitle">Đẩy file .strm trực tiếp lên NAS/Local một cách chuyên nghiệp.</p>
+        <nav class="tabs">
+          <button id="tabPipeline" class="tab-btn active">Pipeline</button>
+          <button id="tabManage" class="tab-btn">Quản lý Intro</button>
+        </nav>
       </div>
       <div class="header-right">
         <span id="nasStatus" style="font-size: 10px; font-weight: 900; color: #888;">OFFLINE</span>
@@ -25,66 +28,91 @@
 
     <div id="status" class="status"></div>
 
-    <!-- Top Configuration Area -->
-    <section class="top-section">
-      <div class="top-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 15px;">
-        <div class="field">
-          <label>TMDB URL / Search</label>
-          <div style="display: flex; gap: 4px; position: relative;">
-            <input id="tmdbUrl" type="text" placeholder="Dán link hoặc nhập tên để tìm..." spellcheck="false" autocomplete="off">
-            <button id="fetchTmdbBtn" type="button" style="min-width: 80px;">Go</button>
-            <div id="searchSuggestions" class="search-suggestions"></div>
+    <!-- Pipeline View -->
+    <div id="pipelineView">
+      <section class="top-section">
+        <div class="top-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 15px;">
+          <div class="field">
+            <label>TMDB URL / Search</label>
+            <div style="display: flex; gap: 4px; position: relative;">
+              <input id="tmdbUrl" type="text" placeholder="Dán link hoặc nhập tên để tìm..." spellcheck="false" autocomplete="off">
+              <button id="fetchTmdbBtn" type="button" style="min-width: 80px;">Go</button>
+              <div id="searchSuggestions" class="search-suggestions"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Tên phim</label>
+            <input id="seriesName" type="text" placeholder="Fetch từ TMDB..." readonly style="background: #f1f3f7; color: #555; cursor: not-allowed; border-style: dashed; font-weight: 700;">
           </div>
         </div>
-        <div class="field">
-          <label>Tên phim</label>
-          <input id="seriesName" type="text" placeholder="Fetch từ TMDB..." readonly style="background: #f1f3f7; color: #555; cursor: not-allowed; border-style: dashed; font-weight: 700;">
-        </div>
-      </div>
 
-      <!-- Tool Row 2 (Hidden by default) -->
-      <div id="toolRow2" class="top-grid" style="display: none; grid-template-columns: 1fr auto; gap: 12px; align-items: end; border-top: 1px solid #eee; padding-top: 15px;">
-        <div class="field">
-          <label>Thư mục đích</label>
-          <div style="display: flex; gap: 4px;">
-            <input id="destPath" type="text" placeholder="/path/to/folder">
-            <button id="browseBtn" type="button">Duyệt</button>
+        <div id="toolRow2" class="top-grid" style="display: none; grid-template-columns: 1fr auto; gap: 12px; align-items: end; border-top: 1px solid #eee; padding-top: 15px;">
+          <div class="field">
+            <label>Thư mục đích</label>
+            <div style="display: flex; gap: 4px;">
+              <input id="destPath" type="text" placeholder="/path/to/folder">
+              <button id="browseBtn" type="button">Duyệt</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button id="saveToNasBtn" class="success" style="height: 36px; min-width: 150px;">ĐẨY LÊN NAS</button>
           </div>
         </div>
-        <div class="field">
-          <label>&nbsp;</label>
-          <button id="saveToNasBtn" class="success" style="height: 36px; min-width: 150px;">ĐẨY LÊN NAS</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Main Content Area: Side-by-Side (Hidden by default) -->
-    <div id="mainWorkspace" class="main-grid" style="display: none;">
-      <!-- Left: Editor -->
-      <section style="margin-bottom: 0;">
-        <div class="section-head">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <h2>DANH SÁCH M3U8</h2>
-            <span id="linkCount" style="font-size: 11px; background: #eef2f7; padding: 2px 8px; border-radius: 12px; font-weight: 800; color: var(--accent);">0 tập</span>
-          </div>
-          <button id="clearBtn" style="min-height: 28px; font-size: 11px; padding: 0 10px;">Clear</button>
-        </div>
-        <textarea id="bulkInput" placeholder="Tên tập|URL m3u8..."></textarea>
       </section>
 
-      <!-- Right: Preview -->
-      <section style="margin-bottom: 0;">
-        <div class="section-head">
-          <h2>XEM TRƯỚC CẤU TRÚC</h2>
-        </div>
-        <div class="stats">
-          <div id="seasonStat" class="stat"><span>Số mùa</span><strong id="seasonCount">0</strong></div>
-          <div class="stat"><span>Thành công / Tổng</span><strong id="successTotal">0 / 0</strong></div>
-        </div>
-        <div id="preview" class="preview-container">
-          <div style="text-align: center; color: #999; padding-top: 100px; font-size: 13px;">Dán link để xem trước</div>
-        </div>
-      </section>
+      <div id="mainWorkspace" class="main-grid" style="display: none;">
+        <section style="margin-bottom: 0;">
+          <div class="section-head">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2>DANH SÁCH M3U8</h2>
+              <span id="linkCount" style="font-size: 11px; background: #eef2f7; padding: 2px 8px; border-radius: 12px; font-weight: 800; color: var(--accent);">0 tập</span>
+            </div>
+            <button id="clearBtn" style="min-height: 28px; font-size: 11px; padding: 0 10px;">Clear</button>
+          </div>
+          <textarea id="bulkInput" placeholder="Tên tập|URL m3u8..."></textarea>
+        </section>
+
+        <section style="margin-bottom: 0;">
+          <div class="section-head">
+            <h2>XEM TRƯỚC CẤU TRÚC</h2>
+          </div>
+          <div class="stats">
+            <div id="seasonStat" class="stat"><span>Số mùa</span><strong id="seasonCount">0</strong></div>
+            <div class="stat"><span>Thành công / Tổng</span><strong id="successTotal">0 / 0</strong></div>
+          </div>
+          <div id="preview" class="preview-container">
+            <div style="text-align: center; color: #999; padding-top: 100px; font-size: 13px;">Dán link để xem trước</div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Management View -->
+    <div id="manageView" style="display: none; flex-direction: column; gap: 15px; height: calc(100vh - 120px); overflow: hidden;">
+      <div class="main-grid" style="flex: 1; height: 100%; grid-template-columns: 0.8fr 1.2fr;">
+        <!-- Left: Media List -->
+        <section style="display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0;">
+          <div class="section-head">
+            <h2>THƯ VIỆN JELLYFIN</h2>
+            <button id="refreshJfBtn" class="icon-btn" title="Làm mới">🔄</button>
+          </div>
+          <div id="jfMediaList" class="browser-list" style="flex: 1; overflow-y: auto; background: var(--panel); border-radius: 12px; border: 1px solid var(--line); margin-top: 10px;">
+            <div style="padding: 20px; text-align: center; color: #999;">Đang tải...</div>
+          </div>
+        </section>
+
+        <!-- Right: Preview & Actions -->
+        <section style="display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0;">
+          <div class="section-head">
+            <h2 id="previewTitle">PREVIEW ANISKIP</h2>
+            <button id="saveSegmentsBtn" class="success" style="display: none; height: 32px; font-size: 11px;">LƯU VÀO DB</button>
+          </div>
+          <div id="aniskipPreview" class="preview-container" style="flex: 1; overflow-y: auto; margin-top: 10px; background: #f8f9fb;">
+            <div style="text-align: center; color: #999; padding-top: 100px;">Chọn một phim để xem thông tin Skip</div>
+          </div>
+        </section>
+      </div>
     </div>
   </main>
 
@@ -144,21 +172,6 @@
       </div>
       <div class="modal-footer">
         <button id="saveSettingsBtn" class="primary" style="width: 100%;">LƯU VÀ ĐÓNG</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Directory Browser Modal -->
-  <div id="dirBrowser" class="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 style="margin: 0; font-size: 15px; font-weight: 800;">DUYỆT THƯ MỤC</h3>
-        <button id="closeBrowserBtn" class="icon-btn">&times;</button>
-      </div>
-      <div id="browserPath" style="padding: 10px 20px; background: #f8f9fa; font-size: 11px; font-family: monospace; border-bottom: 1px solid var(--line); color: var(--accent); white-space: nowrap; overflow-x: auto;"></div>
-      <div id="browserList" class="browser-list"></div>
-      <div class="modal-footer">
-        <button id="selectDirBtn" class="primary" style="width: 100%;">CHỌN THƯ MỤC NÀY</button>
       </div>
     </div>
   </div>

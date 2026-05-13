@@ -1,7 +1,54 @@
 import { SshService } from "../services/ssh.service.mjs";
 import { FsService } from "../services/fs.service.mjs";
+import { JellyfinService } from "../services/jellyfin.service.mjs";
+import { AniskipService } from "../services/aniskip.service.mjs";
+import { DbService } from "../services/db.service.mjs";
 
 export class ApiController {
+  static async listJellyfinMedia(req, res) {
+    try {
+      const items = await JellyfinService.getItems();
+      this.sendJson(res, { ok: true, items: items.Items });
+    } catch (err) {
+      this.sendJson(res, { ok: false, error: err.message });
+    }
+  }
+
+  static async listJellyfinEpisodes(req, res, body) {
+    try {
+      const { seriesId } = JSON.parse(body);
+      const items = await JellyfinService.getEpisodes(seriesId);
+      this.sendJson(res, { ok: true, items: items.Items });
+    } catch (err) {
+      this.sendJson(res, { ok: false, error: err.message });
+    }
+  }
+
+  static async fetchAniskip(req, res, body) {
+    try {
+      const { malId, episodes } = JSON.parse(body);
+      const results = [];
+      for (const ep of episodes) {
+        const skipTimes = await AniskipService.getSkipTimes(malId, ep.number);
+        if (skipTimes.length > 0) {
+          results.push({ itemId: ep.id, number: ep.number, segments: skipTimes });
+        }
+      }
+      this.sendJson(res, { ok: true, results });
+    } catch (err) {
+      this.sendJson(res, { ok: false, error: err.message });
+    }
+  }
+
+  static async saveSegments(req, res, body) {
+    try {
+      const { segments } = JSON.parse(body);
+      await DbService.saveSegments(segments);
+      this.sendJson(res, { ok: true });
+    } catch (err) {
+      this.sendJson(res, { ok: false, error: err.message });
+    }
+  }
   static async listLocalDirs(req, res, body) {
     try {
       const { path: localPath } = JSON.parse(body);

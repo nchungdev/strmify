@@ -30,16 +30,26 @@ const dirBrowser = el("dirBrowser"),
   settingsModal = el("settingsModal"),
   serverNameDisplay = el("serverNameDisplay");
 
+// New elements
+const tabPipeline = el("tabPipeline"),
+  tabManage = el("tabManage"),
+  pipelineView = el("pipelineView"),
+  manageView = el("manageView"),
+  jfMediaList = el("jfMediaList"),
+  aniskipPreview = el("aniskipPreview"),
+  saveSegmentsBtn = el("saveSegmentsBtn"),
+  refreshJfBtn = el("refreshJfBtn");
+
 let TMDB_API_KEY = "";
 let currentTmdbData = { type: "", seasons: [] },
   currentBrowserPath = "",
   targetInput = null;
 const collapsedSeasons = new Set();
+let pendingSegments = [];
 
 // --- Initialization ---
 
 window.onload = async () => {
-  // Fetch Config
   try {
     const res = await fetch("/api/config");
     const config = await res.json();
@@ -65,6 +75,132 @@ window.onload = async () => {
     if (cfg?.password) setTimeout(testConnection, 500);
   }
   renderPreview();
+};
+
+// --- Tab Switching ---
+
+tabPipeline.onclick = () => {
+  tabPipeline.classList.add("active");
+  tabManage.classList.remove("active");
+  pipelineView.style.display = "block";
+  manageView.style.display = "none";
+};
+
+tabManage.onclick = () => {
+  tabManage.classList.add("active");
+  tabPipeline.classList.remove("active");
+  manageView.style.display = "flex";
+  pipelineView.style.display = "none";
+  loadJellyfinMedia();
+};
+
+// --- Jellyfin & AniSkip Management ---
+
+async function loadJellyfinMedia() {
+  jfMediaList.innerHTML = "<div style='padding:20px;text-align:center;'>Đang tải...</div>";
+  try {
+    const res = await fetch("/api/jf-items");
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    
+    jfMediaList.innerHTML = "";
+    data.items.forEach(item => {
+      const d = document.createElement("div");
+      d.className = "media-item";
+      const year = item.ProductionYear ? `(${item.ProductionYear})` : "";
+      d.innerHTML = `
+        <span class="title">${item.Name}</span>
+        <span class="meta">${item.Type} ${year}</span>
+      `;
+      d.onclick = () => {
+        document.querySelectorAll(".media-item").forEach(i => i.classList.remove("active"));
+        d.classList.add("active");
+        fetchAniSkipPreview(item);
+      };
+      jfMediaList.append(d);
+    });
+  } catch (e) {
+    jfMediaList.innerHTML = `<div style='padding:20px;color:var(--bad);'>Lỗi: ${e.message}</div>`;
+  }
+}
+
+refreshJfBtn.onclick = loadJellyfinMedia;
+
+async function fetchAniSkipPreview(item) {
+  aniskipPreview.innerHTML = "<div style='padding:20px;text-align:center;'>Đang tìm kiếm thông tin Skip...</div>";
+  saveSegmentsBtn.style.display = "none";
+  pendingSegments = [];
+
+  const malId = item.ProviderIds?.AniList || item.ProviderIds?.Mal || item.ProviderIds?.AniDB;
+  if (!malId && item.Type === "Series") {
+    // Try to find via TMDB if not in Jellyfin
+    // For now, let's just warn
+    aniskipPreview.innerHTML = `<div style='padding:20px;color:var(--bad);'>Không tìm thấy MAL/AniList ID cho bộ phim này. Vui lòng cập nhật Metadata trong Jellyfin trước.</div>`;
+    return;
+  }
+
+  try {
+    // 1. Get episodes
+    const epRes = await fetch("/api/jf-episodes", {
+      method: "POST",
+      body: JSON.stringify({ seriesId: item.Id })
+    });
+    const epData = await epRes.json();
+    
+    const episodes = epData.items.map(e => ({ id: e.Id, number: e.IndexNumber }));
+    
+    // 2. Fetch from AniSkip
+    const aniRes = await fetch("/api/aniskip-fetch", {
+      method: "POST",
+      body: JSON.stringify({ malId, episodes })
+    });
+    const aniData = await aniRes.json();
+    
+    if (aniData.results.length === 0) {
+      aniskipPreview.innerHTML = `<div style='padding:20px;text-align:center;'>Không tìm thấy dữ liệu trên AniSkip cho bộ phim này.</div>`;
+      return;
+    }
+
+    aniskipPreview.innerHTML = "";
+    aniData.results.forEach(res => {
+      const row = document.createElement("div");
+      row.className = "skip-row";
+      const segs = res.segments.map(s => {
+        const type = s.skipType === 'op' ? 'Intro' : 'Outro';
+        const cls = s.skipType === 'op' ? 'op' : 'ed';
+        pendingSegments.push({ itemId: res.itemId, type: s.skipType === 'op' ? 0 : 1, start: s.interval.startTime, end: s.interval.endTime });
+        return `<span class="skip-tag ${cls}">${type}: ${Math.round(s.interval.startTime)}s - ${Math.round(s.interval.endTime)}s</span>`;
+      }).join(" ");
+      
+      row.innerHTML = `<span>Tập ${res.number}</span><div>${segs}</div>`;
+      aniskipPreview.append(row);
+    });
+
+    saveSegmentsBtn.style.display = "block";
+    saveSegmentsBtn.innerText = `LƯU ${pendingSegments.length} ĐOẠN VÀO DB`;
+  } catch (e) {
+    aniskipPreview.innerHTML = `<div style='padding:20px;color:var(--bad);'>Lỗi: ${e.message}</div>`;
+  }
+}
+
+saveSegmentsBtn.onclick = async () => {
+  saveSegmentsBtn.disabled = true;
+  setStatus("Đang lưu segments...", "ok");
+  try {
+    const res = await fetch("/api/segments-save", {
+      method: "POST",
+      body: JSON.stringify({ segments: pendingSegments })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setStatus("Đã lưu thành công!", "ok");
+      saveSegmentsBtn.style.display = "none";
+    } else throw new Error(data.error);
+  } catch (e) {
+    setStatus("Lỗi: " + e.message, "error");
+  } finally {
+    saveSegmentsBtn.disabled = false;
+  }
 };
 
 // --- Storage & Config ---
@@ -273,10 +409,9 @@ tmdbUrl.oninput = () => {
   const query = tmdbUrl.value.trim();
   if (searchTimeout) clearTimeout(searchTimeout);
 
-  // Auto-fetch if it's a valid TMDB URL
   if (query.match(/\/(tv|movie)\/(\d+)/)) {
     searchSuggestions.style.display = "none";
-    fetchTmdbBtn.click(); // Trigger Go
+    fetchTmdbBtn.click();
     return;
   }
 
@@ -313,7 +448,6 @@ function renderSuggestions(results, append = false) {
     searchSuggestions.innerHTML = "";
     searchSuggestions.scrollTop = 0;
   } else {
-    // Remove old load more button if it exists
     const oldBtn = searchSuggestions.querySelector(".load-more-btn");
     if (oldBtn) oldBtn.remove();
   }
@@ -323,7 +457,6 @@ function renderSuggestions(results, append = false) {
     return;
   }
 
-  // Filter for only movie or tv types
   const filtered = results.filter((r) => r.media_type === "movie" || r.media_type === "tv");
 
   filtered.forEach((item) => {
@@ -345,12 +478,11 @@ function renderSuggestions(results, append = false) {
     div.onclick = () => {
       tmdbUrl.value = `https://www.themoviedb.org/${item.media_type}/${item.id}`;
       searchSuggestions.style.display = "none";
-      fetchTmdbBtn.click(); // Auto fetch
+      fetchTmdbBtn.click();
     };
     searchSuggestions.appendChild(div);
   });
 
-  // Add Load More Button if needed
   if (currentSearchPage < totalSearchPages) {
     const loadMore = document.createElement("div");
     loadMore.className = "search-item load-more-btn";
@@ -372,7 +504,6 @@ function renderSuggestions(results, append = false) {
   searchSuggestions.style.display = "block";
 }
 
-// Close suggestions on click outside
 document.addEventListener("click", (e) => {
   if (e.target !== tmdbUrl && e.target !== searchSuggestions) {
     searchSuggestions.style.display = "none";
@@ -462,25 +593,21 @@ function renderPreview() {
   const { items, errors } = parseInput();
   const total = items.length + errors.length;
   
-  // Toggle Visibility & Update Link Counter (Left)
   const linkCountEl = el("linkCount");
   linkCountEl.style.display = total > 0 ? "inline-block" : "none";
   linkCountEl.innerText = `${total} tập`;
   
-  // Toggle Visibility & Update Stats (Right)
   const statsEl = document.querySelector(".stats");
-  statsEl.style.display = total > 0 ? "flex" : "none";
+  if (statsEl) statsEl.style.display = total > 0 ? "flex" : "none";
   
-  // Only show Season count for TV Shows
   const seasonStat = el("seasonStat");
-  seasonStat.style.display = currentTmdbData.type === "tv" ? "flex" : "none";
+  if (seasonStat) seasonStat.style.display = currentTmdbData.type === "tv" ? "flex" : "none";
   
   const uniqueSeasons = new Set(items.map(it => it.sFolder).filter(Boolean));
-  el("seasonCount").innerText = uniqueSeasons.size;
-  el("successTotal").innerText = `${items.length} / ${total}`;
+  if (el("seasonCount")) el("seasonCount").innerText = uniqueSeasons.size;
+  if (el("successTotal")) el("successTotal").innerText = `${items.length} / ${total}`;
 
-  // Disable Save button if no items
-  el("saveToNasBtn").disabled = items.length === 0;
+  saveToNasBtn.disabled = items.length === 0;
 
   if (!total)
     return (preview.innerHTML =

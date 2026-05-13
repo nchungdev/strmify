@@ -94,6 +94,18 @@ const server = createServer(async (req, res) => {
         case "/api/push":
           await ApiController.pushRemote(req, res, body);
           break;
+        case "/api/jf-items":
+          await ApiController.listJellyfinMedia(req, res);
+          break;
+        case "/api/jf-episodes":
+          await ApiController.listJellyfinEpisodes(req, res, body);
+          break;
+        case "/api/aniskip-fetch":
+          await ApiController.fetchAniskip(req, res, body);
+          break;
+        case "/api/segments-save":
+          await ApiController.saveSegments(req, res, body);
+          break;
         default:
           res.writeHead(404);
           res.end(JSON.stringify({ error: "API Route Not Found" }));
