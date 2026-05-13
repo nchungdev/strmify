@@ -162,9 +162,21 @@ async function fetchAniSkipPreview(item) {
 
   const malId = item.ProviderIds?.AniList || item.ProviderIds?.Mal || item.ProviderIds?.AniDB;
   if (!malId && item.Type === "Series") {
-    // Try to find via TMDB if not in Jellyfin
-    // For now, let's just warn
-    aniskipPreview.innerHTML = `<div style='padding:20px;color:var(--bad);'>Không tìm thấy MAL/AniList ID cho bộ phim này. Vui lòng cập nhật Metadata trong Jellyfin trước.</div>`;
+    aniskipPreview.innerHTML = `
+      <div style='padding:20px;text-align:center;'>
+        <p style='color:var(--bad);margin-bottom:15px;'>Không tìm thấy MAL/AniList ID cho bộ phim này.</p>
+        <div style="display:flex; gap:8px; justify-content:center; max-width:300px; margin:0 auto;">
+          <input id="manualMalId" type="text" placeholder="Nhập MAL ID (v dụ: 21)" style="height:32px; font-size:12px;">
+          <button id="manualSearchBtn" class="primary" style="height:32px; font-size:11px; white-space:nowrap;">TÌM SKIP</button>
+        </div>
+        <p style='font-size:11px; color:#888; margin-top:10px;'>Bạn có thể lấy ID từ URL của MyAnimeList (vd: myanimelist.net/anime/<b>21</b>)</p>
+      </div>
+    `;
+    el("manualSearchBtn").onclick = () => {
+      const id = el("manualMalId").value.trim();
+      if (!id) return alert("Vui lòng nhập MAL ID");
+      fetchAniSkipPreview({ ...item, ProviderIds: { Mal: id } });
+    };
     return;
   }
 
