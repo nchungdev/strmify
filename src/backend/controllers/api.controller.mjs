@@ -24,6 +24,16 @@ export class ApiController {
     }
   }
 
+  static async listItemSegments(req, res, body) {
+    try {
+      const { itemId } = JSON.parse(body);
+      const segments = await JellyfinService.getMediaSegments(itemId);
+      this.sendJson(res, { ok: true, segments });
+    } catch (err) {
+      this.sendJson(res, { ok: false, error: err.message });
+    }
+  }
+
   static async fetchAniskip(req, res, body) {
     try {
       let { malId, tmdbId, episodes, type } = JSON.parse(body);
@@ -53,7 +63,26 @@ export class ApiController {
   static async saveSegments(req, res, body) {
     try {
       const { segments } = JSON.parse(body);
+      
+      // 1. Save to IntroSkipper DB (legacy/compatibility)
       await DbService.saveSegments(segments);
+
+      // 2. Push to Jellyfin Media Segments API (Native 10.9+)
+      // Group segments by itemId
+      const grouped = segments.reduce((acc, seg) => {
+        if (!acc[seg.itemId]) acc[seg.itemId] = [];
+        acc[seg.itemId].push({
+          Type: seg.type === 0 ? "Intro" : "Outro", // Type: Intro (5), Outro (4)
+          StartTicks: Math.round(seg.start * 10000000),
+          EndTicks: Math.round(seg.end * 10000000)
+        });
+        return acc;
+      }, {});
+
+      for (const [itemId, jfSegments] of Object.entries(grouped)) {
+        await JellyfinService.saveMediaSegments(itemId, jfSegments);
+      }
+
       this.sendJson(res, { ok: true });
     } catch (err) {
       this.sendJson(res, { ok: false, error: err.message });

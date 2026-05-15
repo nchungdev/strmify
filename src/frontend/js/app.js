@@ -156,47 +156,51 @@ function renderJellyfinMedia() {
 refreshJfBtn.onclick = loadJellyfinMedia;
 
 async function fetchAniSkipPreview(item) {
-  aniskipPreview.innerHTML = "<div style='padding:20px;text-align:center;'>Đang tìm kiếm thông tin Skip...</div>";
+  aniskipPreview.innerHTML = "<div style='padding:20px;text-align:center;'>Đang tải dữ liệu...</div>";
   saveSegmentsBtn.style.display = "none";
   pendingSegments = [];
 
   const malId = item.ProviderIds?.AniList || item.ProviderIds?.Mal || item.ProviderIds?.AniDB;
   const tmdbId = item.ProviderIds?.Tmdb;
 
-  if (!malId && !tmdbId) {
-    aniskipPreview.innerHTML = `
-      <div style='padding:20px;text-align:center;'>
-        <p style='color:var(--bad);margin-bottom:15px;'>Không tìm thấy bất kỳ ID nào (TMDB/MAL) cho bộ phim này.</p>
-        <div style="display:flex; gap:8px; justify-content:center; max-width:300px; margin:0 auto;">
-          <input id="manualMalId" type="text" placeholder="Nhập MAL ID (v dụ: 21)" style="height:32px; font-size:12px;">
-          <button id="manualSearchBtn" class="primary" style="height:32px; font-size:11px; white-space:nowrap;">TÌM SKIP</button>
-        </div>
-      </div>
-    `;
-    el("manualSearchBtn").onclick = () => {
-      const id = el("manualMalId").value.trim();
-      if (!id) return alert("Vui lòng nhập MAL ID");
-      fetchAniSkipPreview({ ...item, ProviderIds: { Mal: id } });
-    };
-    return;
-  }
-
   try {
-    // 1. Get episodes
-    const epRes = await fetch("/api/jf-episodes", {
-      method: "POST",
-      body: JSON.stringify({ seriesId: item.Id })
-    });
-    const epData = await epRes.json();
-    if (!epData.ok) throw new Error(epData.error || "Không thể lấy danh sách tập phim");
-    
-    const episodes = (epData.items || []).map(e => ({ id: e.Id, number: e.IndexNumber }));
+    // 1. Show existing segments for Movie
+    let currentHtml = "";
+    if (item.Type === "Movie") {
+        const segRes = await fetch("/api/item-segments", { method: "POST", body: JSON.stringify({ itemId: item.Id })});
+        const segData = await segRes.json();
+        if (segData.ok && segData.segments.length > 0) {
+            currentHtml = `<div style="margin-bottom:15px; padding:10px; background:#eef2f7; border-radius:8px;">
+                <div style="font-size:10px; font-weight:800; color:var(--accent); margin-bottom:5px; text-transform:uppercase;">Hiện có trên Jellyfin:</div>
+                <div style="display:flex; gap:5px;">
+                  ${segData.segments.map(s => `<span class="skip-tag ${s.Type.toLowerCase()}" style="font-size:10px; padding:2px 6px;">${s.Type}: ${Math.round(s.StartTicks/10000000)}s - ${Math.round(s.EndTicks/10000000)}s</span>`).join("")}
+                </div>
+            </div>`;
+        }
+    }
+
+    // 2. Get episodes or single item
+    let episodes = [];
+    if (item.Type === "Series") {
+      const epRes = await fetch("/api/jf-episodes", {
+        method: "POST",
+        body: JSON.stringify({ seriesId: item.Id })
+      });
+      const epData = await epRes.json();
+      if (!epData.ok) throw new Error(epData.error);
+      episodes = (epData.items || []).map(e => ({ id: e.Id, number: e.IndexNumber, name: e.Name }));
+    } else {
+      episodes = [{ id: item.Id, number: 1, name: item.Name }];
+    }
+
     if (episodes.length === 0) {
-      aniskipPreview.innerHTML = `<div style='padding:20px;text-align:center;'>Không tìm thấy tập phim nào trong Jellyfin.</div>`;
+      aniskipPreview.innerHTML = `${currentHtml}<div style='padding:20px;text-align:center;'>Không tìm thấy tập phim nào.</div>`;
       return;
     }
+
+    // 2. Fetch existing segments from Jellyfin for a few samples to show status? 
+    // Or just fetch AniSkip and compare.
     
-    // 2. Fetch from AniSkip (with tmdbId fallback in backend)
     const aniRes = await fetch("/api/aniskip-fetch", {
       method: "POST",
       body: JSON.stringify({ malId, tmdbId, episodes, type: item.Type })
@@ -204,7 +208,6 @@ async function fetchAniSkipPreview(item) {
     const aniData = await aniRes.json();
     
     if (!aniData.ok) {
-      // If backend failed to resolve MAL ID, show manual input
       if (aniData.error.includes("MAL ID")) {
         aniskipPreview.innerHTML = `
           <div style='padding:20px;text-align:center;'>
@@ -226,27 +229,44 @@ async function fetchAniSkipPreview(item) {
     }
     
     if (!aniData.results || aniData.results.length === 0) {
-      aniskipPreview.innerHTML = `<div style='padding:20px;text-align:center;'>Không tìm thấy dữ liệu trên AniSkip cho bộ phim này.</div>`;
+      aniskipPreview.innerHTML = `${currentHtml}<div style='padding:20px;text-align:center;'>Không tìm thấy dữ liệu trên AniSkip.</div>`;
       return;
     }
 
-    aniskipPreview.innerHTML = "";
+    aniskipPreview.innerHTML = currentHtml;
+    const list = document.createElement("div");
+    list.style.display = "flex";
+    list.style.flexDirection = "column";
+    list.style.gap = "8px";
+
     aniData.results.forEach(res => {
       const row = document.createElement("div");
       row.className = "skip-row";
+      row.style.padding = "10px";
+      row.style.background = "white";
+      row.style.borderRadius = "8px";
+      row.style.border = "1px solid #eee";
+      
       const segs = (res.segments || []).map(s => {
         const type = s.skipType === 'op' ? 'Intro' : 'Outro';
         const cls = s.skipType === 'op' ? 'op' : 'ed';
         pendingSegments.push({ itemId: res.itemId, type: s.skipType === 'op' ? 0 : 1, start: s.interval.startTime, end: s.interval.endTime });
-        return `<span class="skip-tag ${cls}">${type}: ${Math.round(s.interval.startTime)}s - ${Math.round(s.interval.endTime)}s</span>`;
-      }).join(" ");
+        return `<span class="skip-tag ${cls}" style="font-size:10px; padding:2px 6px; border-radius:4px; margin-right:4px;">${type}: ${Math.round(s.interval.startTime)}s - ${Math.round(s.interval.endTime)}s</span>`;
+      }).join("");
       
-      row.innerHTML = `<span>Tập ${res.number}</span><div>${segs}</div>`;
-      aniskipPreview.append(row);
+      const epName = episodes.find(e => e.id === res.itemId)?.name || `Tập ${res.number}`;
+      row.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:600; font-size:12px;">${epName} (Tập ${res.number})</span>
+          <div>${segs}</div>
+        </div>
+      `;
+      list.append(row);
     });
 
+    aniskipPreview.append(list);
     saveSegmentsBtn.style.display = "block";
-    saveSegmentsBtn.innerText = `LƯU ${pendingSegments.length} ĐOẠN VÀO DB`;
+    saveSegmentsBtn.innerText = `ĐỒNG BỘ ${pendingSegments.length} ĐOẠN LÊN JELLYFIN`;
   } catch (e) {
     aniskipPreview.innerHTML = `<div style='padding:20px;color:var(--bad);'>Lỗi: ${e.message}</div>`;
   }

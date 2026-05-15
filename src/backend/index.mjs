@@ -106,6 +106,9 @@ const server = createServer(async (req, res) => {
         case "/api/aniskip-fetch":
           await ApiController.fetchAniskip(req, res, body);
           break;
+        case "/api/item-segments":
+          await ApiController.listItemSegments(req, res, body);
+          break;
         case "/api/segments-save":
           await ApiController.saveSegments(req, res, body);
           break;

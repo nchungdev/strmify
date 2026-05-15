@@ -40,4 +40,25 @@ export class JellyfinService {
     };
     return this.fetch(`/Shows/${seriesId}/Episodes`, params);
   }
+
+  static async getMediaSegments(itemId) {
+    return this.fetch(`/Items/${itemId}/MediaSegments`);
+  }
+
+  static async saveMediaSegments(itemId, segments) {
+    const url = new URL(`${this.url}/Items/${itemId}/MediaSegments`);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Emby-Token': this.apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(segments)
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Jellyfin API Error: ${text}`);
+    }
+    return true;
+  }
 }
