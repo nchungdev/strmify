@@ -90,7 +90,7 @@
 
     <!-- Management View -->
     <div id="manageView" style="display: none; flex-direction: column; gap: 15px; height: calc(100vh - 120px); overflow: hidden;">
-      <div class="main-grid" style="flex: 1; height: 100%; grid-template-columns: 0.8fr 1.2fr;">
+      <div class="main-grid" id="manageGrid" style="flex: 1; height: 100%; grid-template-columns: 0.7fr 0.6fr 0.7fr;">
         <!-- Left: Media List -->
         <section style="display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0;">
           <div class="section-head" style="margin-bottom: 5px;">
@@ -106,14 +106,24 @@
           </div>
         </section>
 
+        <!-- Middle: Episode List -->
+        <section style="display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0;">
+          <div class="section-head">
+            <h2 id="middleTitle">DANH SÁCH TẬP</h2>
+          </div>
+          <div id="jfEpisodeList" class="browser-list" style="flex: 1; overflow-y: auto; background: var(--panel); border-radius: 12px; border: 1px solid var(--line);">
+            <div style="padding: 20px; text-align: center; color: #999;">Chọn phim để xem...</div>
+          </div>
+        </section>
+
         <!-- Right: Preview & Actions -->
         <section style="display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0;">
           <div class="section-head">
             <h2 id="previewTitle">PREVIEW ANISKIP</h2>
-            <button id="saveSegmentsBtn" class="success" style="display: none; height: 32px; font-size: 11px;">LƯU VÀO DB</button>
+            <button id="saveSegmentsBtn" class="success" style="display: none; height: 32px; font-size: 11px;">ĐỒNG BỘ LÊN JELLYFIN</button>
           </div>
           <div id="aniskipPreview" class="preview-container" style="flex: 1; overflow-y: auto; margin-top: 10px; background: #f8f9fb;">
-            <div style="text-align: center; color: #999; padding-top: 100px;">Chọn một phim để xem thông tin Skip</div>
+            <div style="text-align: center; color: #999; padding-top: 100px;">Chọn một tập để xem thông tin Skip</div>
           </div>
         </section>
       </div>
