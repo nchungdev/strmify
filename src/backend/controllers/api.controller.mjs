@@ -27,8 +27,9 @@ export class ApiController {
   static async listItemSegments(req, res, body) {
     try {
       const { itemId } = JSON.parse(body);
-      const segments = await JellyfinService.getMediaSegments(itemId);
-      this.sendJson(res, { ok: true, segments });
+      const data = await JellyfinService.getMediaSegments(itemId);
+      // The API returns { Items: [...], TotalRecordCount: 2, ... }
+      this.sendJson(res, { ok: true, segments: data.Items || [] });
     } catch (err) {
       this.sendJson(res, { ok: false, error: err.message });
     }

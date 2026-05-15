@@ -42,11 +42,13 @@ export class JellyfinService {
   }
 
   static async getMediaSegments(itemId) {
-    return this.fetch(`/Items/${itemId}/MediaSegments`);
+    return this.fetch(`/MediaSegments/${itemId}`);
   }
 
   static async saveMediaSegments(itemId, segments) {
-    const url = new URL(`${this.url}/Items/${itemId}/MediaSegments`);
+    const url = new URL(`${this.url}/MediaSegments/${itemId}`);
+    // The plugin might expect a specific format
+    // Based on the GET response, let's try sending the segments directly
     const response = await fetch(url, {
       method: 'POST',
       headers: {

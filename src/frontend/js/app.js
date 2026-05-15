@@ -223,9 +223,10 @@ async function showItemDetails(item, series = null) {
     const container = el(`segments-curr-${item.Id}`);
     if (container) {
       if (data.ok && data.segments.length > 0) {
-        container.innerHTML = data.segments.map(s => 
-          `<span class="skip-tag ${s.Type.toLowerCase()}" style="font-size:8px; padding:1px 4px;">${s.Type}</span>`
-        ).join("");
+        container.innerHTML = data.segments.map(s => {
+          const cls = s.Type.toLowerCase() === "intro" ? "op" : "ed";
+          return `<span class="skip-tag ${cls}" style="font-size:8px; padding:1px 4px;">${s.Type}</span>`;
+        }).join("");
       } else {
         container.innerHTML = "<span style='font-size:8px; color:#ccc;'>Chưa có segment</span>";
       }
