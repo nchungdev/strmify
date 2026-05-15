@@ -238,7 +238,7 @@ async function showItemDetails(item, series = null) {
 }
 
 async function fetchAniSkipPreview(item, series = null) {
-  aniskipPreview.innerHTML = "<div style='padding:20px;text-align:center;'>Đang tìm AniSkip...</div>";
+  aniskipPreview.innerHTML = "<div style='padding:20px;text-align:center;'>Đang tải dữ liệu...</div>";
   saveSegmentsBtn.style.display = "none";
   pendingSegments = [];
 
@@ -246,6 +246,42 @@ async function fetchAniSkipPreview(item, series = null) {
   const tmdbId = (series || item).ProviderIds?.Tmdb;
 
   try {
+    // 1. Fetch current segments
+    const segRes = await fetch("/api/item-segments", {
+      method: "POST",
+      body: JSON.stringify({ itemId: item.Id })
+    });
+    const segData = await segRes.json();
+    
+    let existingHtml = "";
+    if (segData.ok && segData.segments.length > 0) {
+      const segRows = segData.segments.map(s => {
+        const cls = s.Type.toLowerCase() === "intro" ? "op" : "ed";
+        return `
+          <div class="skip-row" style="background:#f1f7fd; border-color:#d0e2ff; margin-bottom:8px;">
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span class="skip-tag ${cls}">${s.Type}</span>
+              <span style="font-size:10px; color:#666;">ID: ${s.Id.split("-")[0]}...</span>
+            </div>
+            <span style="font-size:13px; font-weight:800; color:var(--accent-strong);">
+              ${Math.round(s.StartTicks/10000000)}s - ${Math.round(s.EndTicks/10000000)}s
+            </span>
+          </div>`;
+      }).join("");
+      
+      existingHtml = `
+        <div style="margin-bottom:25px;">
+          <div style="font-size:11px; font-weight:900; color:var(--accent); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <span style="background:var(--accent); width:4px; height:12px; border-radius:2px;"></span>
+            HIỆN CÓ TRÊN JELLYFIN
+          </div>
+          ${segRows}
+        </div>`;
+    } else {
+      existingHtml = `<div style="margin-bottom:25px; padding:15px; text-align:center; border:1px dashed #ddd; border-radius:12px; font-size:11px; color:#999;">Chưa có dữ liệu skip trên Jellyfin</div>`;
+    }
+
+    // 2. Fetch from AniSkip
     const episodes = [{ id: item.Id, number: item.IndexNumber || 1, name: item.Name }];
     const aniRes = await fetch("/api/aniskip-fetch", {
       method: "POST",
@@ -253,17 +289,19 @@ async function fetchAniSkipPreview(item, series = null) {
     });
     const aniData = await aniRes.json();
     
+    let aniskipHtml = "";
     if (!aniData.ok) {
       if (aniData.error.includes("MAL ID")) {
-        aniskipPreview.innerHTML = `
+        aniskipHtml = `
           <div style='padding:20px;text-align:center;'>
-            <p style='color:var(--bad);margin-bottom:15px;'>Không tìm được MAL ID. Nhập thủ công:</p>
+            <p style='color:var(--bad);margin-bottom:15px; font-size:12px;'>Không tìm được MAL ID cho phim này.</p>
             <div style="display:flex; gap:8px; justify-content:center;">
-              <input id="manualMalId" type="text" placeholder="MAL ID" style="height:32px; width:80px;">
-              <button id="manualSearchBtn" class="primary" style="height:32px;">TÌM</button>
+              <input id="manualMalId" type="text" placeholder="Nhập MAL ID" style="height:32px; width:100px; font-size:12px;">
+              <button id="manualSearchBtn" class="primary" style="height:32px; font-size:11px;">TÌM</button>
             </div>
           </div>
         `;
+        aniskipPreview.innerHTML = existingHtml + aniskipHtml;
         el("manualSearchBtn").onclick = () => {
           const id = el("manualMalId").value.trim();
           if (!id) return;
@@ -271,39 +309,33 @@ async function fetchAniSkipPreview(item, series = null) {
         };
         return;
       }
-      throw new Error(aniData.error);
-    }
-    
-    if (!aniData.results || aniData.results.length === 0) {
-      aniskipPreview.innerHTML = `<div style='padding:20px;text-align:center;'>Không có dữ liệu AniSkip cho tập này.</div>`;
-      return;
-    }
-
-    aniskipPreview.innerHTML = "";
-    aniData.results.forEach(res => {
-      const row = document.createElement("div");
-      row.className = "skip-row";
-      row.style.flexDirection = "column";
-      row.style.alignItems = "flex-start";
-      row.style.gap = "10px";
-      
-      const segs = (res.segments || []).map(s => {
+      aniskipHtml = `<div style='padding:20px;color:var(--bad); font-size:12px;'>Lỗi AniSkip: ${aniData.error}</div>`;
+    } else if (!aniData.results || aniData.results.length === 0) {
+      aniskipHtml = `<div style='padding:20px;text-align:center; color:#999; font-size:12px;'>Không tìm thấy dữ liệu trên AniSkip cho tập này.</div>`;
+    } else {
+      const suggestions = aniData.results[0].segments.map(s => {
         const type = s.skipType === 'op' ? 'Intro' : 'Outro';
         const cls = s.skipType === 'op' ? 'op' : 'ed';
-        pendingSegments.push({ itemId: res.itemId, type: s.skipType === 'op' ? 0 : 1, start: s.interval.startTime, end: s.interval.endTime });
+        pendingSegments.push({ itemId: item.Id, type: s.skipType === 'op' ? 0 : 1, start: s.interval.startTime, end: s.interval.endTime });
         return `
-          <div style="display:flex; justify-content:space-between; width:100%; border-bottom:1px solid #f0f0f0; padding-bottom:5px;">
+          <div class="skip-row" style="margin-bottom:8px; border-style:dashed;">
             <span class="skip-tag ${cls}">${type}</span>
-            <span style="font-size:11px; font-weight:700;">${Math.round(s.interval.startTime)}s - ${Math.round(s.interval.endTime)}s</span>
+            <span style="font-size:13px; font-weight:700;">${Math.round(s.interval.startTime)}s - ${Math.round(s.interval.endTime)}s</span>
           </div>`;
       }).join("");
       
-      row.innerHTML = `<div style="font-weight:800; font-size:11px; color:var(--muted);">${item.Name}</div>${segs}`;
-      aniskipPreview.append(row);
-    });
+      aniskipHtml = `
+        <div>
+          <div style="font-size:11px; font-weight:900; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <span style="background:var(--muted); width:4px; height:12px; border-radius:2px;"></span>
+            GỢI Ý TỪ ANISKIP
+          </div>
+          ${suggestions}
+        </div>`;
+      saveSegmentsBtn.style.display = "block";
+    }
 
-    saveSegmentsBtn.style.display = "block";
-    saveSegmentsBtn.innerText = `ĐỒNG BỘ LÊN JELLYFIN`;
+    aniskipPreview.innerHTML = existingHtml + aniskipHtml;
   } catch (e) {
     aniskipPreview.innerHTML = `<div style='padding:20px;color:var(--bad);'>Lỗi: ${e.message}</div>`;
   }
